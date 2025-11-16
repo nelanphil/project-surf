@@ -1,0 +1,27 @@
+# Node / JS
+node_modules/
+.pnpm-store/
+.yarn/*
+dist/
+build/
+.next/
+out/
+coverage/
+
+# Env / Secrets
+.env
+.env.*
+*.key
+*.pem
+
+# OS / Editors
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Logs
+logs/
+*.log
+
+
