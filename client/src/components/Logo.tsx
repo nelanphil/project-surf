@@ -21,7 +21,7 @@ export function Logo({ className = "", variant = "dark" }: LogoProps) {
         fontWeight="600"
         letterSpacing="0.5"
       >
-        NKS SURF
+        GRINGO SURF
       </text>
     </svg>
   );

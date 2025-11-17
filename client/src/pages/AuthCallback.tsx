@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import React, { useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuthStore } from '../stores/authStore';
 import { Alert, AlertDescription } from '../components/ui/alert';
@@ -6,16 +6,17 @@ import { Alert, AlertDescription } from '../components/ui/alert';
 export default function AuthCallback() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { handleGoogleCallback, isLoading, error } = useAuthStore();
+  const { handleGoogleCallback, error, intendedPath, closeAuthModal } = useAuthStore();
 
   useEffect(() => {
     const token = searchParams.get('token');
-    
+
     if (token) {
       handleGoogleCallback(token)
         .then(() => {
-          // Redirect to home page on success
-          navigate('/', { replace: true });
+          const from = searchParams.get('from') || intendedPath || '/';
+          closeAuthModal();
+          navigate(from, { replace: true });
         })
         .catch((err) => {
           // Error is handled by the store, just stay on this page to show it
@@ -35,10 +36,7 @@ export default function AuthCallback() {
             <AlertDescription>
               {error}
               <br />
-              <button
-                onClick={() => navigate('/signin')}
-                className="mt-4 text-sm underline"
-              >
+              <button onClick={() => navigate('/signin')} className="mt-4 text-sm underline">
                 Return to sign in
               </button>
             </AlertDescription>
@@ -57,4 +55,3 @@ export default function AuthCallback() {
     </div>
   );
 }
-

@@ -1,16 +1,37 @@
-import { Link } from "react-router-dom";
-import { Wrench, GraduationCap, ArrowRight } from "lucide-react";
-import { Button } from "./ui/button";
-import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "./ui/card";
+import React from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Wrench, GraduationCap, ArrowRight } from 'lucide-react';
+import { Button } from './ui/button';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from './ui/card';
+
+import { useAuthStore } from '../stores/authStore';
 
 export function ServicesOverview() {
+  const navigate = useNavigate();
+  const { user } = useAuthStore();
+
+  const goRepairs = () => {
+    if (!user) {
+      navigate('/signin?from=%2Frepairs');
+    } else {
+      navigate('/repairs');
+    }
+  };
+
+  const goLessons = () => {
+    if (!user) {
+      navigate('/signin?from=%2Flessons');
+    } else {
+      navigate('/lessons');
+    }
+  };
   return (
     <section className="py-20 px-4 bg-gray-50">
       <div className="max-w-7xl mx-auto">
         <div className="text-center mb-12">
           <h2 className="text-4xl mb-4">Our Services</h2>
           <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-            Professional surfboard repairs and expert surf instruction in New Smyrna Beach
+            Professional surfboard repairs and surf instruction in New Smyrna Beach
           </p>
         </div>
 
@@ -28,17 +49,15 @@ export function ServicesOverview() {
             </CardHeader>
             <CardContent>
               <p className="text-gray-700">
-                From small dings to major damage, our experienced technicians provide quality 
-                repairs using premium materials. We offer detailed assessments, photo documentation, 
-                and optional pickup service for local customers in the 32168 area.
+                From small, medium, to large dings, we provide quality repairs using premium
+                materials. We offer detailed assessments, photo documentation, and optional pickup
+                service for local customers in the NSB area.
               </p>
             </CardContent>
             <CardFooter>
-              <Button asChild className="w-full group">
-                <Link to="/repairs">
-                  Submit Repair Request
-                  <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
-                </Link>
+              <Button className="w-full group" onClick={goRepairs}>
+                Submit Repair Request
+                <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
               </Button>
             </CardFooter>
           </Card>
@@ -56,17 +75,15 @@ export function ServicesOverview() {
             </CardHeader>
             <CardContent>
               <p className="text-gray-700">
-                Whether you're a complete beginner learning to stand up or looking to advance your 
-                wave riding techniques, our tailored lesson packages guide you through every step. 
+                Whether you're a complete beginner learning to stand up or looking to advance your
+                wave riding techniques, our tailored lesson packages guide you through every step.
                 We provide all equipment and offer both individual and small group options.
               </p>
             </CardContent>
             <CardFooter>
-              <Button asChild variant="outline" className="w-full group">
-                <Link to="/lessons">
-                  View Lesson Packages
-                  <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
-                </Link>
+              <Button variant="outline" className="w-full group" onClick={goLessons}>
+                View Lesson Packages
+                <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
               </Button>
             </CardFooter>
           </Card>

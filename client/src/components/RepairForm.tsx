@@ -1,53 +1,134 @@
-import { useState } from "react";
-import { Button } from "./ui/button";
-import { Input } from "./ui/input";
-import { Label } from "./ui/label";
-import { Textarea } from "./ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
-import { RadioGroup, RadioGroupItem } from "./ui/radio-group";
-import { Calendar } from "./ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
-import { CalendarIcon, Upload } from "lucide-react";
-import { toast } from "sonner@2.0.3";
+import React, { useState } from 'react';
+import { useAuthStore } from '../stores/authStore';
+import { Button } from './ui/button';
+import { Input } from './ui/input';
+import { Label } from './ui/label';
+import { Textarea } from './ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
+import { RadioGroup, RadioGroupItem } from './ui/radio-group';
+import { Calendar } from './ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
+import { CalendarIcon, Upload } from 'lucide-react';
+import { toast } from 'sonner';
+import { submitRepairRequest } from '../services/repairService';
 
 export function RepairForm() {
-  const [zipCode, setZipCode] = useState("");
-  const [deliveryMethod, setDeliveryMethod] = useState("");
-  const [pickupDate, setPickupDate] = useState<Date>();
-  const [fileName, setFileName] = useState("");
+  const [zipCode, setZipCode] = useState('');
+  const [deliveryMethod, setDeliveryMethod] = useState<'dropoff' | 'pickup' | ''>('');
+  const [pickupDate, setPickupDate] = useState<Date | undefined>(undefined);
+  const [pickupTime, setPickupTime] = useState('');
+  const [dropoffDate, setDropoffDate] = useState<Date | undefined>(undefined);
+  const [dropoffTime, setDropoffTime] = useState('');
+  const [fileName, setFileName] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { user, openAuthModal } = useAuthStore();
 
-  const isLocalZip = zipCode === "32168";
-  
-  // Calculate minimum pickup date (48 hours from now)
-  const minDate = new Date();
-  minDate.setHours(minDate.getHours() + 48);
+  const allowedPickupZips = new Set(['32132', '32141', '32168']);
+  const isAllowedZip = allowedPickupZips.has(zipCode.trim());
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Calculate minimum pickup/dropoff date (48 hours from now, normalized to midnight)
+  const minSelectableDate = React.useMemo(() => {
+    const date = new Date();
+    date.setDate(date.getDate() + 2); // at least 48 hours (approx) ahead
+    date.setHours(0, 0, 0, 0);
+    return date;
+  }, []);
+
+  // Clear pick-up selection if zip becomes unsupported
+  React.useEffect(() => {
+    if (deliveryMethod === 'pickup' && !isAllowedZip) {
+      setDeliveryMethod('');
+    }
+  }, [isAllowedZip, deliveryMethod]);
+
+  const handleFileChange = (e: { target: { files?: FileList | null } }) => {
     const file = e.target.files?.[0];
     if (file) {
       setFileName(file.name);
     }
   };
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const combineDateTime = (dateValue?: Date, timeValue?: string) => {
+    if (!dateValue) return undefined;
+    const combined = new Date(dateValue.getTime());
+    if (timeValue) {
+      const [hours, minutes] = timeValue.split(':').map((value) => parseInt(value, 10));
+      combined.setHours(hours || 0, minutes || 0, 0, 0);
+    }
+    return combined.toISOString();
+  };
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const formData = new FormData(e.currentTarget);
-    
-    // In production, this would submit to your MERN backend
-    console.log("Form submitted:", Object.fromEntries(formData));
-    toast.success("Repair request submitted! We'll contact you soon.");
-    
-    // Reset form
-    e.currentTarget.reset();
-    setZipCode("");
-    setDeliveryMethod("");
-    setPickupDate(undefined);
-    setFileName("");
+
+    if (!user) {
+      openAuthModal('/repairs');
+      return;
+    }
+
+    if (!deliveryMethod) {
+      toast.error('Please select a delivery method');
+      return;
+    }
+
+    if (deliveryMethod === 'pickup' && (!pickupDate || !pickupTime)) {
+      toast.error('Please choose a pickup date and time');
+      return;
+    }
+
+    const form = e.currentTarget;
+    const formData = new FormData(form);
+
+    const payload = {
+      name: (formData.get('name') as string)?.trim() || '',
+      email: (formData.get('email') as string)?.trim() || '',
+      phone: (formData.get('phone') as string)?.trim() || '',
+      zipCode: (formData.get('zipCode') as string)?.trim() || '',
+      boardSize: (formData.get('boardSize') as string)?.trim() || '',
+      boardType: (formData.get('boardType') as string)?.trim() || undefined,
+      dingLocation: (formData.get('dingLocation') as string)?.trim() || '',
+      dingSize: (formData.get('dingSize') as string)?.trim() || '',
+      description: (formData.get('description') as string)?.trim() || undefined,
+      deliveryMethod: (deliveryMethod || 'dropoff') as 'dropoff' | 'pickup',
+      pickupAddress:
+        deliveryMethod === 'pickup'
+          ? (formData.get('pickupAddress') as string)?.trim() || ''
+          : undefined,
+      pickupDate:
+        deliveryMethod === 'pickup'
+          ? combineDateTime(pickupDate, pickupTime || undefined)
+          : undefined,
+      pickupNotes:
+        deliveryMethod === 'pickup'
+          ? (formData.get('pickupNotes') as string)?.trim() || undefined
+          : undefined,
+      dropoffDate: dropoffDate ? combineDateTime(dropoffDate, dropoffTime || undefined) : undefined,
+    };
+
+    setIsSubmitting(true);
+    try {
+      await submitRepairRequest(payload);
+      toast.success("Repair request submitted! We'll contact you soon.");
+
+      form.reset();
+      setZipCode('');
+      setDeliveryMethod('');
+      setPickupDate(undefined);
+      setPickupTime('');
+      setDropoffDate(undefined);
+      setDropoffTime('');
+      setFileName('');
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to submit repair request';
+      toast.error(errorMessage);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
-    <section id="repairs" className="py-20 px-4 bg-slate-50">
+    <section id="repairs" className="py-8 px-4">
       <div className="max-w-4xl mx-auto">
         <div className="text-center mb-12">
           <h2 className="text-4xl md:text-5xl mb-4">Surfboard Repairs</h2>
@@ -81,10 +162,10 @@ export function RepairForm() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="zipCode">Zip Code *</Label>
-                  <Input 
-                    id="zipCode" 
-                    name="zipCode" 
-                    required 
+                  <Input
+                    id="zipCode"
+                    name="zipCode"
+                    required
                     value={zipCode}
                     onChange={(e) => setZipCode(e.target.value)}
                   />
@@ -94,15 +175,15 @@ export function RepairForm() {
               {/* Board Information */}
               <div className="space-y-4">
                 <h3 className="text-lg">Board Details</h3>
-                
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="boardSize">Board Size *</Label>
-                    <Input 
-                      id="boardSize" 
-                      name="boardSize" 
+                    <Input
+                      id="boardSize"
+                      name="boardSize"
                       placeholder="e.g., 6'2'' or 7 feet"
-                      required 
+                      required
                     />
                   </div>
                   <div className="space-y-2">
@@ -158,8 +239,8 @@ export function RepairForm() {
 
                 <div className="space-y-2">
                   <Label htmlFor="description">Description</Label>
-                  <Textarea 
-                    id="description" 
+                  <Textarea
+                    id="description"
                     name="description"
                     placeholder="Tell us more about the damage..."
                     className="min-h-24"
@@ -184,7 +265,7 @@ export function RepairForm() {
                       className="w-full"
                     >
                       <Upload className="mr-2 h-4 w-4" />
-                      {fileName || "Choose File"}
+                      {fileName || 'Choose File'}
                     </Button>
                   </div>
                   <p className="text-sm text-slate-500">
@@ -196,8 +277,8 @@ export function RepairForm() {
               {/* Delivery Method */}
               <div className="space-y-4">
                 <h3 className="text-lg">Delivery Method *</h3>
-                <RadioGroup 
-                  value={deliveryMethod} 
+                <RadioGroup
+                  value={deliveryMethod}
                   onValueChange={setDeliveryMethod}
                   name="deliveryMethod"
                   required
@@ -206,48 +287,52 @@ export function RepairForm() {
                     <RadioGroupItem value="dropoff" id="dropoff" />
                     <div className="flex-1">
                       <Label htmlFor="dropoff" className="cursor-pointer">
-                        Drop-off at NKS Surf
+                        Drop-off at Gringo Surf
                       </Label>
                       <p className="text-sm text-slate-500 mt-1">
                         Bring your board to our shop - No additional charge
                       </p>
                     </div>
                   </div>
-                  
-                  {isLocalZip && (
-                    <div className="flex items-start space-x-3 p-4 border rounded-lg">
-                      <RadioGroupItem value="pickup" id="pickup" />
-                      <div className="flex-1">
-                        <Label htmlFor="pickup" className="cursor-pointer">
-                          Pickup Service (+$20)
-                        </Label>
-                        <p className="text-sm text-slate-500 mt-1">
-                          Available for 32168 zip code area
+
+                  <div
+                    className={`flex items-start space-x-3 p-4 border rounded-lg ${
+                      !isAllowedZip ? 'opacity-50 cursor-not-allowed' : ''
+                    }`}
+                  >
+                    <RadioGroupItem value="pickup" id="pickup" disabled={!isAllowedZip} />
+                    <div className="flex-1">
+                      <Label
+                        htmlFor="pickup"
+                        className={`cursor-pointer ${!isAllowedZip ? 'pointer-events-none' : ''}`}
+                      >
+                        Pick-up Service (+$20)
+                      </Label>
+                      <p className="text-sm text-slate-500 mt-1">
+                        Available for 32132, 32141, 32168 zip code areas
+                      </p>
+                      {!isAllowedZip && zipCode && (
+                        <p className="text-sm text-amber-600 mt-2">
+                          Enter a supported 5-digit zip (32132, 32141, 32168) to enable pick-up.
                         </p>
-                      </div>
+                      )}
                     </div>
-                  )}
-                  
-                  {!isLocalZip && zipCode && (
-                    <p className="text-sm text-amber-600 p-4 bg-amber-50 rounded-lg">
-                      Pickup service is only available for zip code 32168. Please select drop-off or update your zip code.
-                    </p>
-                  )}
+                  </div>
                 </RadioGroup>
               </div>
 
               {/* Pickup Details */}
-              {deliveryMethod === "pickup" && isLocalZip && (
+              {deliveryMethod === 'pickup' && isAllowedZip && (
                 <div className="space-y-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
                   <h3 className="text-lg">Pickup Details</h3>
-                  
+
                   <div className="space-y-2">
                     <Label htmlFor="pickupAddress">Pickup Address *</Label>
-                    <Input 
-                      id="pickupAddress" 
+                    <Input
+                      id="pickupAddress"
                       name="pickupAddress"
                       placeholder="Street address"
-                      required={deliveryMethod === "pickup"}
+                      required={deliveryMethod === 'pickup'}
                     />
                   </div>
 
@@ -261,7 +346,7 @@ export function RepairForm() {
                           type="button"
                         >
                           <CalendarIcon className="mr-2 h-4 w-4" />
-                          {pickupDate ? pickupDate.toLocaleDateString() : "Select date"}
+                          {pickupDate ? pickupDate.toLocaleDateString() : 'Select date'}
                         </Button>
                       </PopoverTrigger>
                       <PopoverContent className="w-auto p-0">
@@ -269,19 +354,29 @@ export function RepairForm() {
                           mode="single"
                           selected={pickupDate}
                           onSelect={setPickupDate}
-                          disabled={(date) => date < minDate}
+                          disabled={(date) => date < minSelectableDate}
                         />
                       </PopoverContent>
                     </Popover>
-                    <p className="text-sm text-slate-500">
-                      Pickup available 48 hours from now
-                    </p>
+                    <p className="text-sm text-slate-500">Pickup available 48 hours from now</p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="pickupTime">Preferred Pickup Time *</Label>
+                    <Input
+                      id="pickupTime"
+                      name="pickupTime"
+                      type="time"
+                      value={pickupTime}
+                      required={deliveryMethod === 'pickup'}
+                      onChange={(e) => setPickupTime(e.target.value)}
+                    />
                   </div>
 
                   <div className="space-y-2">
                     <Label htmlFor="pickupNotes">Pickup Instructions</Label>
-                    <Textarea 
-                      id="pickupNotes" 
+                    <Textarea
+                      id="pickupNotes"
                       name="pickupNotes"
                       placeholder="Gate code, parking instructions, etc."
                     />
@@ -289,8 +384,50 @@ export function RepairForm() {
                 </div>
               )}
 
-              <Button type="submit" className="w-full" size="lg">
-                Submit Repair Request
+              {/* Drop-off Details */}
+              {deliveryMethod === 'dropoff' && (
+                <div className="space-y-4 p-4 bg-slate-50 rounded-lg border border-slate-200">
+                  <h3 className="text-lg">Drop-off Details</h3>
+                  <div className="space-y-2">
+                    <Label>Preferred Drop-off Date (Optional)</Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className="w-full justify-start text-left"
+                          type="button"
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {dropoffDate ? dropoffDate.toLocaleDateString() : 'Select date'}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0">
+                        <Calendar
+                          mode="single"
+                          selected={dropoffDate}
+                          onSelect={setDropoffDate}
+                          disabled={(date) => date < minSelectableDate}
+                        />
+                      </PopoverContent>
+                    </Popover>
+                    <p className="text-sm text-slate-500">Drop-off available 48 hours from now</p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="dropoffTime">Preferred Drop-off Time (Optional)</Label>
+                    <Input
+                      id="dropoffTime"
+                      name="dropoffTime"
+                      type="time"
+                      value={dropoffTime}
+                      onChange={(e) => setDropoffTime(e.target.value)}
+                    />
+                  </div>
+                </div>
+              )}
+
+              <Button type="submit" className="w-full" size="lg" disabled={isSubmitting}>
+                {isSubmitting ? 'Submitting...' : 'Submit Repair Request'}
               </Button>
             </form>
           </CardContent>

@@ -1,8 +1,9 @@
-import { RepairForm } from "../components/RepairForm";
+import React from 'react';
+import { RepairForm } from '../components/RepairForm';
 
 export function RepairsPage() {
   return (
-    <div className="pt-20">
+    <div>
       <RepairForm />
     </div>
   );

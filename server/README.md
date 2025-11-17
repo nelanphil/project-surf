@@ -21,6 +21,16 @@ Copy `.env.example` to `.env` and update:
 - `GOOGLE_CLIENT_SECRET`: Google OAuth client secret (required for Google sign-in)
 - `GOOGLE_CALLBACK_URL`: Google OAuth callback URL (default: `/api/users/auth/google/callback`)
 
+### Email (Contact form)
+Add the following SMTP variables to enable the contact form email sender. You can copy from `env.example`:
+
+- `CONTACT_TO_EMAIL` – recipient address for contact form (e.g., `pnelan@gmail.com`)
+- `SMTP_HOST` – SMTP server (e.g., `smtp.gmail.com`)
+- `SMTP_PORT` – SMTP port (e.g., `465` for secure)
+- `SMTP_SECURE` – `true` if using TLS on port 465, else `false`
+- `SMTP_USER` – SMTP username (for Gmail, your address)
+- `SMTP_PASS` – SMTP password or App Password (recommended)
+
 ## Scripts
 
 - `npm run dev` – start API with nodemon (auto-reload)

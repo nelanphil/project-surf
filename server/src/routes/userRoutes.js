@@ -13,7 +13,7 @@ import {
   deleteUser,
   googleAuthCallback,
 } from "../controllers/userController.js";
-import { protect } from "../middleware/auth.js";
+import { protect, isAdmin } from "../middleware/auth.js";
 
 const router = Router();
 
@@ -49,7 +49,7 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
   });
 }
 
-router.route("/").get(protect, getUsers).post(protect, createUser);
+router.route("/").get(protect, isAdmin, getUsers).post(protect, createUser);
 router
   .route("/me")
   .get(protect, getCurrentUser)

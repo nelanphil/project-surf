@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { useAuthStore } from '../stores/authStore';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -9,10 +9,19 @@ import { Alert, AlertDescription } from '../components/ui/alert';
 import { Separator } from '../components/ui/separator';
 
 export default function SignIn() {
+  const [searchParams] = useSearchParams();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
-  const { signIn, signInWithGoogle, isLoading, error: storeError, setError: setStoreError } = useAuthStore();
+  const {
+    signIn,
+    signInWithGoogle,
+    isLoading,
+    error: storeError,
+    setError: setStoreError,
+    intendedPath,
+    closeAuthModal,
+  } = useAuthStore();
   const navigate = useNavigate();
 
   // Clear store error when component mounts
@@ -27,7 +36,7 @@ export default function SignIn() {
     }
   }, [storeError]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: SubmitEvent) => {
     e.preventDefault();
     setError('');
     setStoreError(null);
@@ -39,15 +48,18 @@ export default function SignIn() {
 
     try {
       await signIn(email, password);
-      navigate('/');
+      const from = searchParams.get('from') || intendedPath || '/';
+      closeAuthModal();
+      navigate(from);
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to sign in. Please check your credentials.';
+      const errorMessage =
+        err instanceof Error ? err.message : 'Failed to sign in. Please check your credentials.';
       setError(errorMessage);
     }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white py-12 px-4">
+    <div className="min-h-screen py-20 px-6">
       <div className="max-w-md mx-auto">
         <Card>
           <CardHeader className="space-y-1">
@@ -138,7 +150,6 @@ export default function SignIn() {
             </form>
           </CardContent>
         </Card>
-
       </div>
     </div>
   );

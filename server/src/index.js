@@ -6,6 +6,9 @@ import cors from "cors";
 import passport from "./config/googleOAuth.js";
 import { connectDB } from "./config/db.js";
 import userRoutes from "./routes/userRoutes.js";
+import contactRoutes from "./routes/contactRoutes.js";
+import lessonRoutes from "./routes/lessonRoutes.js";
+import repairRoutes from "./routes/repairRoutes.js";
 import { notFound, errorHandler } from "./middleware/errorHandler.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -25,6 +28,9 @@ app.get("/api/health", (req, res) => {
 });
 
 app.use("/api/users", userRoutes);
+app.use("/api/contact", contactRoutes);
+app.use("/api/lessons", lessonRoutes);
+app.use("/api/repairs", repairRoutes);
 
 // Fallback route for /auth/callback - redirects to frontend
 // This handles cases where the callback URL accidentally hits the server

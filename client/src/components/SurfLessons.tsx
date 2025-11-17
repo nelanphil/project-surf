@@ -1,95 +1,49 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
-import { Badge } from "./ui/badge";
-import { Button } from "./ui/button";
-import { ImageWithFallback } from "./figma/ImageWithFallback";
-import { Waves, TrendingUp, Award, Clock, Users, Shield } from "lucide-react";
+import React from 'react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
+import { Badge } from './ui/badge';
+import { Button } from './ui/button';
+import { ImageWithFallback } from './figma/ImageWithFallback';
+import { Waves, TrendingUp, Clock, Users } from 'lucide-react';
+
+import { useAuthStore } from '../stores/authStore';
+import { useNavigate } from 'react-router-dom';
+import { lessonPackages } from '../services/lessonPackages';
 
 export function SurfLessons() {
-  const lessonPackages = [
-    {
-      id: 1,
-      title: "Novice to Beginner",
-      level: "Starter Package",
-      duration: "1 Hour Session",
-      description: "Perfect for first-timers ready to catch their first wave",
-      goals: [
-        "Ocean safety and surf etiquette basics",
-        "Proper paddling technique",
-        "Understanding wave selection",
-        "Pop-up fundamentals on the board",
-        "Standing up and riding your first waves",
-        "Basic balance and positioning"
-      ],
-      highlights: [
-        "All equipment provided (board, wetsuit, rash guard)",
-        "Beach safety orientation",
-        "1-on-1 personalized instruction",
-        "Photo documentation of your session"
-      ],
-      price: "$75",
-      image: "https://images.unsplash.com/photo-1722087814088-0c8557c4a41a?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxEYXl0b25hJTIwYmVhY2glMjBzYW5kfGVufDF8fHx8MTc2MTgyMTQ5MHww&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral"
-    },
-    {
-      id: 2,
-      title: "Beginner to Advanced",
-      level: "Progress Package",
-      duration: "1 Hour Session",
-      description: "Take your surfing to the next level with advanced techniques",
-      goals: [
-        "Refining your pop-up and stance",
-        "Wave reading and positioning mastery",
-        "Bottom turns and top turns",
-        "Generating speed down the line",
-        "Cutbacks and basic maneuvers",
-        "Advanced wave selection strategy"
-      ],
-      highlights: [
-        "Video analysis of your technique",
-        "Personalized progression plan",
-        "Board selection guidance",
-        "Competition-ready fundamentals"
-      ],
-      price: "$85",
-      image: "https://images.unsplash.com/photo-1613486185372-e830f4e8a13f?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxzdXJmYm9hcmQlMjBvY2VhbiUyMHdhdmVzfGVufDF8fHx8MTc2MTgyMTA3Mnww&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral"
-    }
-  ];
+  const navigate = useNavigate();
+  const { user, openAuthModal } = useAuthStore();
 
   const features = [
     {
-      icon: Shield,
-      title: "Certified Instructors",
-      description: "All instructors are CPR and First Aid certified with years of teaching experience"
-    },
-    {
       icon: Users,
-      title: "Small Groups",
-      description: "Small Group Options available upon request"
+      title: 'Small Groups',
+      description: 'Small Group Options available upon request',
     },
     {
       icon: Clock,
-      title: "Flexible Scheduling",
-      description: "Morning and afternoon sessions available 7 days a week"
+      title: 'Weekend Only Scheduling',
+      description: 'Morning and afternoon sessions available all weekend',
     },
-    {
-      icon: Award,
-      title: "Quality Equipment",
-      description: "Top-tier beginner-friendly boards and premium wetsuits included"
-    }
+    // {
+    //   icon: Award,
+    //   title: 'Quality Equipment',
+    //   description: 'Top-tier beginner-friendly boards and premium wetsuits included',
+    // },
   ];
 
   return (
-    <section id="lessons" className="py-20 px-4 bg-white">
+    <section id="lessons" className="py-6 px-4">
       <div className="max-w-7xl mx-auto">
         <div className="text-center mb-16">
           <h2 className="text-4xl md:text-5xl mb-4">Surf Lessons</h2>
           <p className="text-xl text-slate-600 max-w-3xl mx-auto">
-            Learn from experienced instructors in a safe, supportive environment. 
-            Whether you're catching your first wave or perfecting your technique, we'll help you progress.
+            Learn from experienced instructors in a safe, supportive environment. Whether you're
+            catching your first wave or perfecting your technique, we'll help you progress.
           </p>
         </div>
 
         {/* Features Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-16">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6 mb-16">
           {features.map((feature, index) => (
             <div key={index} className="flex flex-col items-center text-center p-6">
               <div className="bg-blue-100 p-4 rounded-full mb-4">
@@ -102,7 +56,7 @@ export function SurfLessons() {
         </div>
 
         {/* Lesson Packages */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-12">
+        <div className="grid grid-cols-1 lg:grid-cols-1 gap-8 mb-12">
           {lessonPackages.map((lesson) => (
             <Card key={lesson.id} className="overflow-hidden">
               <div className="relative h-64">
@@ -115,7 +69,7 @@ export function SurfLessons() {
                   <Badge className="bg-blue-500">{lesson.level}</Badge>
                 </div>
               </div>
-              
+
               <CardHeader>
                 <div className="flex justify-between items-start">
                   <div>
@@ -123,12 +77,12 @@ export function SurfLessons() {
                     <CardDescription>{lesson.description}</CardDescription>
                   </div>
                   <div className="text-right">
-                    <div className="text-3xl text-blue-600">{lesson.price}</div>
+                    <div className="text-3xl text-blue-600">${lesson.price}</div>
                     <div className="text-sm text-slate-500">{lesson.duration}</div>
                   </div>
                 </div>
               </CardHeader>
-              
+
               <CardContent className="space-y-6">
                 <div>
                   <div className="flex items-center gap-2 mb-3">
@@ -156,8 +110,17 @@ export function SurfLessons() {
                     ))}
                   </ul>
                 </div>
-
-                <Button className="w-full">Book This Lesson</Button>
+                <div className="flex justify-center">
+                  <Button
+                    className="w-fit"
+                    onClick={() => {
+                      if (!user) return openAuthModal('/lessons/booking');
+                      navigate(`/lessons/booking?packageId=${lesson.id}`);
+                    }}
+                  >
+                    Book This Lesson
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           ))}
@@ -182,9 +145,9 @@ export function SurfLessons() {
               <div>
                 <h4 className="mb-2">Optional</h4>
                 <ul className="text-sm space-y-1 text-slate-600">
+                  <li>• Wet suit</li>
                   <li>• Hat or visor</li>
                   <li>• Sunglasses</li>
-                  <li>• Change of clothes</li>
                   <li>• Waterproof camera</li>
                 </ul>
               </div>
@@ -194,7 +157,6 @@ export function SurfLessons() {
                   <li>• Lessons run rain or shine</li>
                   <li>• 24hr cancellation policy</li>
                   <li>• Minimum age: 8 years old</li>
-                  <li>• Gift certificates available</li>
                 </ul>
               </div>
             </div>

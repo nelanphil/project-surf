@@ -1,9 +1,23 @@
+import React from "react";
 import { Button } from "./ui/button";
-import { Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { ImageWithFallback } from "./figma/ImageWithFallback";
 import { Logo } from "./Logo";
+import { useAuthStore } from "../stores/authStore";
 
 export function Hero() {
+  const navigate = useNavigate();
+  const { user } = useAuthStore();
+
+  const onBookRepair = () => {
+    if (!user) return navigate("/signin?from=%2Frepairs");
+    navigate("/repairs");
+  };
+
+  const onSurfLessons = () => {
+    if (!user) return navigate("/signin?from=%2Flessons");
+    navigate("/lessons");
+  };
   return (
     <div className="relative h-screen w-full overflow-hidden">
       <div className="absolute inset-0">
@@ -14,28 +28,24 @@ export function Hero() {
         />
         <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/40 to-black/60" />
       </div>
-      
+
       <div className="relative z-10 flex flex-col items-center justify-center h-full text-white px-4">
         <Logo className="h-16 md:h-24 w-auto mb-6" variant="light" />
         <p className="text-xl md:text-2xl mb-12 text-center max-w-2xl">
           Expert Surfboard Repairs & Professional Surf Lessons
         </p>
-        
+
         <div className="flex flex-col sm:flex-row gap-4">
-          <Button 
-            size="lg" 
-            asChild
-            className="bg-blue-500 hover:bg-blue-600"
-          >
-            <Link to="/repairs">Book a Repair</Link>
+          <Button size="lg" className="bg-blue-500 hover:bg-blue-600" onClick={onBookRepair}>
+            Book a Repair
           </Button>
-          <Button 
-            size="lg" 
+          <Button
+            size="lg"
             variant="outline"
-            asChild
             className="bg-white/10 hover:bg-white/20 text-white border-white"
+            onClick={onSurfLessons}
           >
-            <Link to="/lessons">Surf Lessons</Link>
+            Surf Lessons
           </Button>
         </div>
       </div>

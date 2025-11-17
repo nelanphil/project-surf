@@ -4,6 +4,7 @@ interface User {
   id: string;
   email: string;
   name: string;
+  isAdmin?: boolean;
 }
 
 interface AuthState {
@@ -11,6 +12,12 @@ interface AuthState {
   token: string | null;
   isLoading: boolean;
   error: string | null;
+  // UI/auth gating
+  authModalOpen: boolean;
+  intendedPath: string | null;
+  isAuthenticated: boolean;
+  openAuthModal: (path?: string) => void;
+  closeAuthModal: () => void;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (name: string, email: string, password: string) => Promise<void>;
   signInWithGoogle: () => void;
@@ -22,8 +29,8 @@ interface AuthState {
 }
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5050/api';
-const TOKEN_KEY = 'nks_surf_token';
-const USER_KEY = 'nks_surf_user';
+const TOKEN_KEY = 'gringo_surf_token';
+const USER_KEY = 'gringo_surf_user';
 
 // Initialize from localStorage
 const getStoredToken = (): string | null => {
@@ -40,6 +47,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   token: getStoredToken(),
   isLoading: false,
   error: null,
+  authModalOpen: false,
+  intendedPath: null,
+  isAuthenticated: !!getStoredUser(),
 
   setLoading: (loading: boolean) => {
     set({ isLoading: loading });
@@ -47,6 +57,18 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   setError: (error: string | null) => {
     set({ error });
+  },
+
+  openAuthModal: (path?: string) => {
+    const fallback = typeof window !== 'undefined' ? window.location.pathname : '/';
+    set({
+      authModalOpen: true,
+      intendedPath: path || get().intendedPath || fallback,
+    });
+  },
+
+  closeAuthModal: () => {
+    set({ authModalOpen: false });
   },
 
   signIn: async (email: string, password: string) => {
@@ -71,6 +93,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         id: data.user._id || data.user.id,
         email: data.user.email,
         name: data.user.name,
+        isAdmin: data.user.isAdmin || false,
       };
 
       localStorage.setItem(TOKEN_KEY, data.token);
@@ -81,6 +104,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         token: data.token,
         isLoading: false,
         error: null,
+        isAuthenticated: true,
       });
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to sign in';
@@ -114,6 +138,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         id: data.user._id || data.user.id,
         email: data.user.email,
         name: data.user.name,
+        isAdmin: data.user.isAdmin || false,
       };
 
       localStorage.setItem(TOKEN_KEY, data.token);
@@ -124,6 +149,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         token: data.token,
         isLoading: false,
         error: null,
+        isAuthenticated: true,
       });
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to create account';
@@ -163,6 +189,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           id: userData._id || userData.id,
           email: userData.email,
           name: userData.name,
+          isAdmin: userData.isAdmin || false,
         };
         
         localStorage.setItem(USER_KEY, JSON.stringify(user));
@@ -170,6 +197,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           user,
           isLoading: false,
           error: null,
+          isAuthenticated: true,
         });
       } else {
         // Token invalid, clear storage
@@ -179,6 +207,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           user: null,
           token: null,
           isLoading: false,
+          isAuthenticated: false,
         });
       }
     } catch (error) {
@@ -189,6 +218,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         user: null,
         token: null,
         isLoading: false,
+        isAuthenticated: false,
       });
     }
   },
@@ -212,6 +242,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           id: userData._id || userData.id,
           email: userData.email,
           name: userData.name,
+          isAdmin: userData.isAdmin || false,
         };
         
         localStorage.setItem(USER_KEY, JSON.stringify(user));
@@ -220,6 +251,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           token,
           isLoading: false,
           error: null,
+          isAuthenticated: true,
         });
       } else {
         throw new Error('Failed to fetch user data');
@@ -232,6 +264,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       set({
         isLoading: false,
         error: errorMessage,
+        isAuthenticated: false,
       });
       throw error;
     }
@@ -244,6 +277,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       user: null,
       token: null,
       error: null,
+      isAuthenticated: false,
     });
   },
 }));

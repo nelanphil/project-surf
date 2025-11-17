@@ -1,4 +1,5 @@
-import { SurfLessons } from "../components/SurfLessons";
+import React from 'react';
+import { SurfLessons } from '../components/SurfLessons';
 
 export function LessonsPage() {
   return (
