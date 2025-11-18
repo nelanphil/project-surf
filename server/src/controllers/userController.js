@@ -235,7 +235,15 @@ export const googleAuthCallback = asyncHandler(async (req, res) => {
     redirectUrl: `${frontendUrl}/auth/callback?token=${encodedToken.substring(0, 20)}...`,
     tokenEncoded: encodedToken !== token,
     redirectUrlLength: redirectUrl.length,
+    tokenLength: token.length,
+    encodedTokenLength: encodedToken.length,
   });
+  
+  // Warn if URL is very long (some servers/browsers have limits)
+  if (redirectUrl.length > 2000) {
+    console.warn('[Google Auth] WARNING: Redirect URL is very long:', redirectUrl.length, 'characters');
+    console.warn('[Google Auth] Some servers may truncate URLs over 2000 characters');
+  }
   
   console.log(`[Google Auth] Redirecting to frontend: ${frontendUrl}/auth/callback`);
   res.redirect(redirectUrl);

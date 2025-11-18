@@ -8,6 +8,8 @@ export default function AuthCallback() {
   const navigate = useNavigate();
   const { handleGoogleCallback, error, intendedPath, closeAuthModal } = useAuthStore();
   const hasProcessed = useRef(false);
+  const [localError, setLocalError] = React.useState<string | null>(null);
+  const [debugInfo, setDebugInfo] = React.useState<any>(null);
 
   // Log component mount and URL info immediately
   useEffect(() => {
@@ -37,37 +39,55 @@ export default function AuthCallback() {
     }
 
     // Try multiple methods to get the token
-    let token = searchParams.get('token');
+    // Priority: query parameter (primary) > hash fragment (fallback)
+    let token: string | null = null;
     const currentUrl = window.location.href;
 
     console.log('[AuthCallback] useEffect triggered');
-    console.log('[AuthCallback] Token from searchParams:', token ? `${token.substring(0, 20)}...` : 'null');
     console.log('[AuthCallback] Full URL:', currentUrl);
+    console.log('[AuthCallback] URL length:', currentUrl.length);
+    console.log('[AuthCallback] Hash:', window.location.hash);
+    console.log('[AuthCallback] Search:', window.location.search);
+    console.log('[AuthCallback] Search length:', window.location.search.length);
 
-    // Fallback: try parsing from window.location.search directly
+    // First try: query parameter (primary method)
+    if (searchParams.get('token')) {
+      token = searchParams.get('token');
+      console.log('[AuthCallback] Token from searchParams:', token ? `${token.substring(0, 20)}...` : 'null');
+    }
+
+    // Second try: direct URLSearchParams parsing from search (fallback)
     if (!token && window.location.search) {
       const urlParams = new URLSearchParams(window.location.search);
       token = urlParams.get('token');
-      console.log('[AuthCallback] Token from URLSearchParams fallback:', token ? `${token.substring(0, 20)}...` : 'null');
+      console.log('[AuthCallback] Token from URLSearchParams:', token ? `${token.substring(0, 20)}...` : 'null');
     }
 
-    // Another fallback: try parsing from hash (some OAuth flows use hash)
+    // Third try: hash fragment (fallback, in case query was stripped)
     if (!token && window.location.hash) {
       const hashParams = new URLSearchParams(window.location.hash.substring(1));
       token = hashParams.get('token');
-      console.log('[AuthCallback] Token from hash fallback:', token ? `${token.substring(0, 20)}...` : 'null');
+      console.log('[AuthCallback] Token from hash:', token ? `${token.substring(0, 20)}...` : 'null');
     }
 
     if (!token) {
-      console.error('[AuthCallback] No token found in URL, redirecting to sign in');
-      console.error('[AuthCallback] URL breakdown:', {
+      const urlBreakdown = {
         href: window.location.href,
         pathname: window.location.pathname,
         search: window.location.search,
         hash: window.location.hash,
         allParams: Object.fromEntries(searchParams.entries()),
-      });
-      navigate('/signin', { replace: true });
+      };
+      
+      console.error('[AuthCallback] No token found in URL');
+      console.error('[AuthCallback] URL breakdown:', urlBreakdown);
+      setDebugInfo(urlBreakdown);
+      setLocalError('No authentication token found in URL. The redirect may have stripped query parameters.');
+      
+      // Show error to user for 5 seconds before redirecting
+      setTimeout(() => {
+        navigate('/signin', { replace: true });
+      }, 5000);
       return;
     }
 
@@ -99,27 +119,45 @@ export default function AuthCallback() {
         // Error is handled by the store, just stay on this page to show it
         console.error('[AuthCallback] Error handling Google callback:', err);
         console.error('[AuthCallback] Error stack:', err instanceof Error ? err.stack : 'No stack');
+        const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred';
+        setLocalError(`Failed to complete authentication: ${errorMessage}`);
+        setDebugInfo({
+          error: errorMessage,
+          stack: err instanceof Error ? err.stack : undefined,
+          url: window.location.href,
+        });
         hasProcessed.current = false; // Allow retry on error
       });
   }, [searchParams, navigate, intendedPath, closeAuthModal, handleGoogleCallback]);
 
-  if (error) {
+  const displayError = error || localError;
+  
+  if (displayError) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white py-12 px-4 flex items-center justify-center">
         <div className="max-w-md w-full space-y-4">
           <Alert variant="destructive">
             <AlertDescription>
               <strong>Authentication Error</strong>
-              <p className="mt-2">{error}</p>
+              <p className="mt-2">{displayError}</p>
               <p className="mt-4 text-sm text-slate-600">
                 Please try signing in again. If the problem persists, contact support.
               </p>
+              {debugInfo && (
+                <details className="mt-4 text-xs">
+                  <summary className="cursor-pointer text-slate-500">Debug Info</summary>
+                  <pre className="mt-2 p-2 bg-slate-100 rounded overflow-auto">
+                    {JSON.stringify(debugInfo, null, 2)}
+                  </pre>
+                </details>
+              )}
             </AlertDescription>
           </Alert>
           <div className="flex gap-2 justify-center">
             <button
               onClick={() => {
                 hasProcessed.current = false;
+                setLocalError(null);
                 navigate('/signin', { replace: true });
               }}
               className="text-sm text-blue-600 hover:underline"
@@ -130,6 +168,7 @@ export default function AuthCallback() {
             <button
               onClick={() => {
                 hasProcessed.current = false;
+                setLocalError(null);
                 window.location.reload();
               }}
               className="text-sm text-blue-600 hover:underline"
