@@ -16,10 +16,7 @@ export default function RequireAuth({ children }: Props) {
     // 2. Not currently loading auth state
     // 3. User is not authenticated
     if (isInitialized && !isLoading && !user) {
-      console.log('[RequireAuth] User not authenticated, opening auth modal');
       openAuthModal(location.pathname);
-    } else if (!isInitialized || isLoading) {
-      console.log('[RequireAuth] Waiting for auth initialization', { isInitialized, isLoading });
     }
   }, [user, isLoading, isInitialized, openAuthModal, location.pathname]);
 

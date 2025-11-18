@@ -11,31 +11,10 @@ export default function AuthCallback() {
   const [localError, setLocalError] = React.useState<string | null>(null);
   const [debugInfo, setDebugInfo] = React.useState<any>(null);
 
-  // Log component mount and URL info immediately
-  // This runs synchronously to capture URL before any potential redirects
+  // Store token in sessionStorage as backup in case page reloads
   useEffect(() => {
-    const currentUrl = window.location.href;
-    const currentPath = window.location.pathname;
-    const queryString = window.location.search;
-    
-    console.log('[AuthCallback] Component mounted');
-    console.log('[AuthCallback] Current URL:', currentUrl);
-    console.log('[AuthCallback] Current URL length:', currentUrl.length);
-    console.log('[AuthCallback] Current path:', currentPath);
-    console.log('[AuthCallback] Query string:', queryString);
-    console.log('[AuthCallback] Query string length:', queryString.length);
-    console.log('[AuthCallback] All search params:', Object.fromEntries(searchParams.entries()));
-    
-    // Check if URL might be truncated (some browsers/servers have ~2000 char limit)
-    if (currentUrl.length > 2000) {
-      console.warn('[AuthCallback] URL is very long, might be truncated:', currentUrl.length);
-    }
-    
-    // Store token in sessionStorage as backup in case page reloads
-    // This helps if Render's redirect rule causes a refresh
     const tokenParam = searchParams.get('token');
     if (tokenParam) {
-      console.log('[AuthCallback] Storing token in sessionStorage as backup');
       sessionStorage.setItem('google_auth_token_backup', tokenParam);
     }
   }, [searchParams]);
@@ -43,40 +22,28 @@ export default function AuthCallback() {
   useEffect(() => {
     // Prevent multiple calls
     if (hasProcessed.current) {
-      console.log('[AuthCallback] Already processed, skipping');
       return;
     }
 
     // Try multiple methods to get the token
     // Priority: query parameter (primary) > hash fragment (fallback)
     let token: string | null = null;
-    const currentUrl = window.location.href;
-
-    console.log('[AuthCallback] useEffect triggered');
-    console.log('[AuthCallback] Full URL:', currentUrl);
-    console.log('[AuthCallback] URL length:', currentUrl.length);
-    console.log('[AuthCallback] Hash:', window.location.hash);
-    console.log('[AuthCallback] Search:', window.location.search);
-    console.log('[AuthCallback] Search length:', window.location.search.length);
 
     // First try: query parameter (primary method)
     if (searchParams.get('token')) {
       token = searchParams.get('token');
-      console.log('[AuthCallback] Token from searchParams:', token ? `${token.substring(0, 20)}...` : 'null');
     }
 
     // Second try: direct URLSearchParams parsing from search (fallback)
     if (!token && window.location.search) {
       const urlParams = new URLSearchParams(window.location.search);
       token = urlParams.get('token');
-      console.log('[AuthCallback] Token from URLSearchParams:', token ? `${token.substring(0, 20)}...` : 'null');
     }
 
     // Third try: hash fragment (fallback, in case query was stripped)
     if (!token && window.location.hash) {
       const hashParams = new URLSearchParams(window.location.hash.substring(1));
       token = hashParams.get('token');
-      console.log('[AuthCallback] Token from hash:', token ? `${token.substring(0, 20)}...` : 'null');
     }
     
     // Fourth try: localStorage (token may have been captured by pre-React script)
@@ -84,7 +51,6 @@ export default function AuthCallback() {
       const storedToken = localStorage.getItem('gringo_surf_token');
       if (storedToken) {
         token = storedToken;
-        console.log('[AuthCallback] Token from localStorage (pre-captured):', token ? `${token.substring(0, 20)}...` : 'null');
       }
     }
     
@@ -93,7 +59,6 @@ export default function AuthCallback() {
       const backupToken = sessionStorage.getItem('google_auth_token_backup');
       if (backupToken) {
         token = backupToken;
-        console.log('[AuthCallback] Token from sessionStorage backup:', token ? `${token.substring(0, 20)}...` : 'null');
         // Store in localStorage for consistency
         localStorage.setItem('gringo_surf_token', backupToken);
         // Clear the backup after using it
@@ -110,10 +75,9 @@ export default function AuthCallback() {
         allParams: Object.fromEntries(searchParams.entries()),
       };
       
-      console.error('[AuthCallback] No token found in URL');
-      console.error('[AuthCallback] URL breakdown:', urlBreakdown);
+      console.error('[AuthCallback] No token found');
       setDebugInfo(urlBreakdown);
-      setLocalError('No authentication token found in URL. The redirect may have stripped query parameters.');
+      setLocalError('No authentication token found. The redirect may have stripped query parameters.');
       
       // Show error to user for 5 seconds before redirecting
       setTimeout(() => {
@@ -126,16 +90,9 @@ export default function AuthCallback() {
     let decodedToken = token;
     try {
       decodedToken = decodeURIComponent(token);
-      if (decodedToken !== token) {
-        console.log('[AuthCallback] Token was URL encoded, decoded successfully');
-      }
     } catch (e) {
-      console.warn('[AuthCallback] Token decode failed, using original:', e);
+      // Use original token if decode fails
     }
-
-    console.log('[AuthCallback] Processing token');
-    console.log('[AuthCallback] Token length:', decodedToken.length);
-    console.log('[AuthCallback] Token starts with:', decodedToken.substring(0, 20));
     
     // Ensure token is stored in localStorage (in case pre-React script didn't run)
     localStorage.setItem('gringo_surf_token', decodedToken);
@@ -145,28 +102,18 @@ export default function AuthCallback() {
 
     handleGoogleCallback(decodedToken)
       .then(() => {
-        console.log('[AuthCallback] Authentication successful, auth state updated');
-        
         // Wait for auth state to be fully initialized before navigating
         const checkAuthState = () => {
           const state = useAuthStore.getState();
-          console.log('[AuthCallback] Checking auth state:', {
-            user: state.user?.email,
-            isAuthenticated: state.isAuthenticated,
-            isInitialized: state.isInitialized,
-            isLoading: state.isLoading,
-          });
           
           // Ensure state is initialized and not loading before navigating
           if (state.isInitialized && !state.isLoading) {
             const from = searchParams.get('from') || intendedPath || '/';
-            console.log('[AuthCallback] Auth state ready, redirecting to:', from);
             closeAuthModal();
             // Use replace to avoid adding to history
             navigate(from, { replace: true });
           } else {
             // Wait a bit more if state isn't ready
-            console.log('[AuthCallback] Auth state not ready yet, waiting...');
             setTimeout(checkAuthState, 50);
           }
         };

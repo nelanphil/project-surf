@@ -24,20 +24,15 @@
               const token = urlParams.get('token');
               
               if (token) {
-                console.log('[Pre-React] Token found in URL, storing immediately');
                 // Store token immediately in localStorage before any redirects
                 // This ensures the token survives page reloads caused by redirect rules
                 localStorage.setItem('gringo_surf_token', token);
                 // Also store in sessionStorage as backup
                 sessionStorage.setItem('google_auth_token_backup', token);
-                // Store a flag that we've captured the token
-                sessionStorage.setItem('token_captured', 'true');
-                console.log('[Pre-React] Token stored successfully in localStorage and sessionStorage');
               } else {
                 // Check sessionStorage backup (in case URL was stripped but we had it before)
                 const backupToken = sessionStorage.getItem('google_auth_token_backup');
                 if (backupToken) {
-                  console.log('[Pre-React] No token in URL, restoring from sessionStorage backup');
                   localStorage.setItem('gringo_surf_token', backupToken);
                 }
               }
@@ -49,7 +44,6 @@
                 const hashParams = new URLSearchParams(window.location.hash.substring(1));
                 const hashToken = hashParams.get('token');
                 if (hashToken) {
-                  console.log('[Pre-React] Token found in hash fragment, storing');
                   localStorage.setItem('gringo_surf_token', hashToken);
                   sessionStorage.setItem('google_auth_token_backup', hashToken);
                 }
