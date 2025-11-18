@@ -3,9 +3,10 @@ import react from '@vitejs/plugin-react-swc';
 import path from 'path';
 
 const isProduction = process.env.NODE_ENV === 'production';
-const API_URL = isProduction
-  ? 'https://project-surf-server.onrender.com/api'
-  : process.env.VITE_API_URL || 'http://localhost:5050/api';
+// Respect VITE_API_URL environment variable if set, otherwise use defaults
+const API_URL =
+  process.env.VITE_API_URL ||
+  (isProduction ? 'https://project-surf-server.onrender.com/api' : 'http://localhost:5050/api');
 
 export default defineConfig({
   plugins: [react()],

@@ -32,6 +32,12 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5050/api'
 const TOKEN_KEY = 'gringo_surf_token';
 const USER_KEY = 'gringo_surf_user';
 
+// Log API configuration on module load (only once)
+if (typeof window !== 'undefined') {
+  console.log('[Auth Store] API Base URL:', API_BASE_URL);
+  console.log('[Auth Store] Environment:', import.meta.env.MODE);
+}
+
 // Initialize from localStorage
 const getStoredToken = (): string | null => {
   return localStorage.getItem(TOKEN_KEY);
@@ -162,8 +168,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   signInWithGoogle: () => {
-    const backendUrl = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5050';
-    window.location.href = `${backendUrl}/api/users/auth/google`;
+    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5050/api';
+    const backendUrl = apiUrl.replace('/api', '') || 'http://localhost:5050';
+    const googleAuthUrl = `${backendUrl}/api/users/auth/google`;
+    
+    console.log('[Google Auth] Initiating Google sign-in');
+    console.log('[Google Auth] API URL:', apiUrl);
+    console.log('[Google Auth] Backend URL:', backendUrl);
+    console.log('[Google Auth] Google Auth URL:', googleAuthUrl);
+    
+    window.location.href = googleAuthUrl;
   },
 
   fetchCurrentUser: async () => {
