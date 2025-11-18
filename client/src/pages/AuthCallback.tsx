@@ -110,18 +110,33 @@ export default function AuthCallback() {
     handleGoogleCallback(decodedToken)
       .then(() => {
         console.log('[AuthCallback] Authentication successful, auth state updated');
-        // Small delay to ensure state is fully propagated
-        setTimeout(() => {
-          const from = searchParams.get('from') || intendedPath || '/';
-          console.log('[AuthCallback] Redirecting to:', from);
-          console.log('[AuthCallback] Auth state after callback:', {
-            user: useAuthStore.getState().user?.email,
-            isAuthenticated: useAuthStore.getState().isAuthenticated,
-            isInitialized: useAuthStore.getState().isInitialized,
+        
+        // Wait for auth state to be fully initialized before navigating
+        const checkAuthState = () => {
+          const state = useAuthStore.getState();
+          console.log('[AuthCallback] Checking auth state:', {
+            user: state.user?.email,
+            isAuthenticated: state.isAuthenticated,
+            isInitialized: state.isInitialized,
+            isLoading: state.isLoading,
           });
-          closeAuthModal();
-          navigate(from, { replace: true });
-        }, 100);
+          
+          // Ensure state is initialized and not loading before navigating
+          if (state.isInitialized && !state.isLoading) {
+            const from = searchParams.get('from') || intendedPath || '/';
+            console.log('[AuthCallback] Auth state ready, redirecting to:', from);
+            closeAuthModal();
+            // Use replace to avoid adding to history
+            navigate(from, { replace: true });
+          } else {
+            // Wait a bit more if state isn't ready
+            console.log('[AuthCallback] Auth state not ready yet, waiting...');
+            setTimeout(checkAuthState, 50);
+          }
+        };
+        
+        // Start checking after a small delay
+        setTimeout(checkAuthState, 100);
       })
       .catch((err) => {
         // Error is handled by the store, just stay on this page to show it

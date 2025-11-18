@@ -49,15 +49,25 @@ const getStoredUser = (): User | null => {
   return stored ? JSON.parse(stored) : null;
 };
 
+// Check if we have stored auth data to determine initial state
+const initialToken = getStoredToken();
+const initialUser = getStoredUser();
+// If we have both token and user, we can mark as initialized optimistically
+// If we only have token (no user), we need to wait for fetchCurrentUser
+// If we have neither, we're immediately initialized
+const canInitializeOptimistically = !!(initialToken && initialUser) || !initialToken;
+
 export const useAuthStore = create<AuthState>((set, get) => ({
-  user: getStoredUser(),
-  token: getStoredToken(),
+  user: initialUser,
+  token: initialToken,
   isLoading: false,
   error: null,
   authModalOpen: false,
   intendedPath: null,
-  isAuthenticated: !!getStoredUser(),
-  isInitialized: false,
+  isAuthenticated: !!initialUser,
+  // Mark as initialized if we have complete auth data or no auth data
+  // Only wait if we have token but no user (incomplete state)
+  isInitialized: canInitializeOptimistically,
 
   setLoading: (loading: boolean) => {
     set({ isLoading: loading });
@@ -364,15 +374,24 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 // Auto-fetch current user on mount if token exists
 if (typeof window !== 'undefined') {
   const token = getStoredToken();
-  if (token) {
-    console.log('[Auth Store] Token found on mount, initializing auth state');
+  const user = getStoredUser();
+  
+  if (token && user) {
+    // We have both token and user in storage - validate token in background
+    // Store is already marked as initialized, so components can proceed optimistically
+    console.log('[Auth Store] Token and user found on mount, validating token in background');
+    useAuthStore.getState().fetchCurrentUser().catch((error) => {
+      console.error('[Auth Store] Token validation failed on mount:', error);
+      // fetchCurrentUser already handles clearing invalid tokens and updating state
+    });
+  } else if (token && !user) {
+    // We have token but no user - need to fetch user before marking initialized
+    // Store is NOT initialized yet, so components will wait
+    console.log('[Auth Store] Token found but no user, fetching user data (waiting for initialization)');
     useAuthStore.getState().fetchCurrentUser();
   } else {
-    console.log('[Auth Store] No token found on mount, marking as initialized');
-    useAuthStore.setState({ isInitialized: true });
+    // No token - already initialized (default state)
+    console.log('[Auth Store] No token found on mount, already initialized');
   }
-} else {
-  // Server-side rendering - mark as initialized immediately
-  useAuthStore.setState({ isInitialized: true });
 }
 
