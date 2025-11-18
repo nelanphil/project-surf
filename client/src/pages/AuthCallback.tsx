@@ -9,7 +9,7 @@ export default function AuthCallback() {
   const { handleGoogleCallback, error, intendedPath, closeAuthModal } = useAuthStore();
   const hasProcessed = useRef(false);
   const [localError, setLocalError] = React.useState<string | null>(null);
-  const [debugInfo, setDebugInfo] = React.useState<any>(null);
+  const [debugInfo, setDebugInfo] = React.useState<Record<string, unknown> | null>(null);
 
   // Store token in sessionStorage as backup in case page reloads
   useEffect(() => {
@@ -90,7 +90,7 @@ export default function AuthCallback() {
     let decodedToken = token;
     try {
       decodedToken = decodeURIComponent(token);
-    } catch (e) {
+    } catch {
       // Use original token if decode fails
     }
     

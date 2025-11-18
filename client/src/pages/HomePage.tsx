@@ -4,7 +4,7 @@ import { ServicesOverview } from "../components/ServicesOverview";
 
 export function HomePage() {
   return (
-    <div>
+    <div className="relative">
       <Hero />
       <ServicesOverview />
     </div>

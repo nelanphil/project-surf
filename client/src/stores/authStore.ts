@@ -54,10 +54,6 @@ const initialUser = getStoredUser();
 // If we have neither, we're immediately initialized
 const canInitializeOptimistically = !!(initialToken && initialUser) || !initialToken;
 
-// If we have a token but no user, and we're on the callback route, 
-// the token was just captured - we need to fetch the user
-const isOnCallbackRoute = typeof window !== 'undefined' && window.location.pathname === '/auth/callback';
-
 export const useAuthStore = create<AuthState>((set, get) => ({
   user: initialUser,
   token: initialToken,
@@ -92,7 +88,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   signIn: async (email: string, password: string) => {
     set({ isLoading: true, error: null });
-    
+
     try {
       const response = await fetch(`${API_BASE_URL}/users/login`, {
         method: 'POST',
@@ -117,7 +113,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
       localStorage.setItem(TOKEN_KEY, data.token);
       localStorage.setItem(USER_KEY, JSON.stringify(user));
-      
+
       set({
         user,
         token: data.token,
@@ -139,7 +135,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   signUp: async (name: string, email: string, password: string) => {
     set({ isLoading: true, error: null });
-    
+
     try {
       const response = await fetch(`${API_BASE_URL}/users/register`, {
         method: 'POST',
@@ -164,7 +160,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
       localStorage.setItem(TOKEN_KEY, data.token);
       localStorage.setItem(USER_KEY, JSON.stringify(user));
-      
+
       set({
         user,
         token: data.token,
@@ -188,24 +184,24 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5050/api';
     const backendUrl = apiUrl.replace('/api', '') || 'http://localhost:5050';
     const googleAuthUrl = `${backendUrl}/api/users/auth/google`;
-    
+
     window.location.href = googleAuthUrl;
   },
 
   fetchCurrentUser: async () => {
     const { token } = get();
-    
+
     if (!token) {
       set({ user: null, isLoading: false, isInitialized: true });
       return;
     }
 
     set({ isLoading: true });
-    
+
     try {
       const response = await fetch(`${API_BASE_URL}/users/me`, {
         headers: {
-          'Authorization': `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
         },
       });
 
@@ -217,7 +213,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           name: userData.name,
           isAdmin: userData.isAdmin || false,
         };
-        
+
         localStorage.setItem(USER_KEY, JSON.stringify(user));
         set({
           user,
@@ -228,7 +224,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         });
       } else {
         // Token invalid, clear storage
-        const errorData = await response.json().catch(() => ({}));
         localStorage.removeItem(TOKEN_KEY);
         localStorage.removeItem(USER_KEY);
         set({
@@ -260,46 +255,47 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   handleGoogleCallback: async (token: string) => {
     set({ isLoading: true, error: null });
-    
+
     try {
       // Validate token format (basic JWT check - should have 3 parts separated by dots)
       if (!token || typeof token !== 'string' || token.trim().length === 0) {
         throw new Error('Invalid token: token is missing or empty');
       }
-      
+
       const tokenParts = token.split('.');
       if (tokenParts.length !== 3) {
         throw new Error('Invalid token format: expected JWT token');
       }
-      
+
       // Store token immediately (but don't set isAuthenticated until we have user data)
       localStorage.setItem(TOKEN_KEY, token);
       set({ token });
-      
+
       // Fetch user data
       const response = await fetch(`${API_BASE_URL}/users/me`, {
         headers: {
-          'Authorization': `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
         },
       });
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        const errorMessage = errorData.message || errorData.error || `Failed to fetch user data (${response.status})`;
+        const errorMessage =
+          errorData.message || errorData.error || `Failed to fetch user data (${response.status})`;
         throw new Error(errorMessage);
       }
 
       const userData = await response.json();
-      
+
       const user: User = {
         id: userData._id || userData.id,
         email: userData.email,
         name: userData.name,
         isAdmin: userData.isAdmin || false,
       };
-      
+
       localStorage.setItem(USER_KEY, JSON.stringify(user));
-      
+
       set({
         user,
         token,
@@ -309,9 +305,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         isInitialized: true,
       });
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Failed to complete Google sign-in';
+      const errorMessage =
+        error instanceof Error ? error.message : 'Failed to complete Google sign-in';
       console.error('[Google Auth] Error handling callback:', errorMessage);
-      
+
       // Clear storage on error
       localStorage.removeItem(TOKEN_KEY);
       localStorage.removeItem(USER_KEY);
@@ -344,7 +341,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 if (typeof window !== 'undefined') {
   let token = getStoredToken();
   const user = getStoredUser();
-  
+
   // Always check URL for token if not in localStorage
   // This handles cases where pre-React script didn't run or token was lost during redirect
   if (!token) {
@@ -352,24 +349,24 @@ if (typeof window !== 'undefined') {
       // Check URL query params
       const urlParams = new URLSearchParams(window.location.search);
       const urlToken = urlParams.get('token');
-      
+
       // Check hash fragment
       let hashToken = null;
       if (window.location.hash) {
         try {
           const hashParams = new URLSearchParams(window.location.hash.substring(1));
           hashToken = hashParams.get('token');
-        } catch (e) {
+        } catch {
           // Ignore hash parsing errors
         }
       }
-      
+
       // Check sessionStorage backup
       const backupToken = sessionStorage.getItem('google_auth_token_backup');
-      
+
       // Use first available token source
       token = urlToken || hashToken || backupToken;
-      
+
       if (token) {
         localStorage.setItem(TOKEN_KEY, token);
         if (!backupToken) {
@@ -382,14 +379,17 @@ if (typeof window !== 'undefined') {
       console.error('[Auth Store] Error checking for token:', error);
     }
   }
-  
+
   if (token && user) {
     // We have both token and user in storage - validate token in background
     // Store is already marked as initialized, so components can proceed optimistically
-    useAuthStore.getState().fetchCurrentUser().catch((error) => {
-      console.error('[Auth Store] Token validation failed on mount:', error);
-      // fetchCurrentUser already handles clearing invalid tokens and updating state
-    });
+    useAuthStore
+      .getState()
+      .fetchCurrentUser()
+      .catch((error) => {
+        console.error('[Auth Store] Token validation failed on mount:', error);
+        // fetchCurrentUser already handles clearing invalid tokens and updating state
+      });
   } else if (token && !user) {
     // We have token but no user - need to fetch user before marking initialized
     // This often happens when token was just captured by pre-React script or from URL
@@ -397,4 +397,3 @@ if (typeof window !== 'undefined') {
     useAuthStore.getState().fetchCurrentUser();
   }
 }
-
