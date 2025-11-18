@@ -12,6 +12,7 @@ export default function AuthCallback() {
   const [debugInfo, setDebugInfo] = React.useState<any>(null);
 
   // Log component mount and URL info immediately
+  // This runs synchronously to capture URL before any potential redirects
   useEffect(() => {
     const currentUrl = window.location.href;
     const currentPath = window.location.pathname;
@@ -28,6 +29,14 @@ export default function AuthCallback() {
     // Check if URL might be truncated (some browsers/servers have ~2000 char limit)
     if (currentUrl.length > 2000) {
       console.warn('[AuthCallback] URL is very long, might be truncated:', currentUrl.length);
+    }
+    
+    // Store token in sessionStorage as backup in case page reloads
+    // This helps if Render's redirect rule causes a refresh
+    const tokenParam = searchParams.get('token');
+    if (tokenParam) {
+      console.log('[AuthCallback] Storing token in sessionStorage as backup');
+      sessionStorage.setItem('google_auth_token_backup', tokenParam);
     }
   }, [searchParams]);
 
@@ -68,6 +77,17 @@ export default function AuthCallback() {
       const hashParams = new URLSearchParams(window.location.hash.substring(1));
       token = hashParams.get('token');
       console.log('[AuthCallback] Token from hash:', token ? `${token.substring(0, 20)}...` : 'null');
+    }
+    
+    // Fourth try: sessionStorage backup (in case page reloaded and query params were lost)
+    if (!token) {
+      const backupToken = sessionStorage.getItem('google_auth_token_backup');
+      if (backupToken) {
+        token = backupToken;
+        console.log('[AuthCallback] Token from sessionStorage backup:', token ? `${token.substring(0, 20)}...` : 'null');
+        // Clear the backup after using it
+        sessionStorage.removeItem('google_auth_token_backup');
+      }
     }
 
     if (!token) {
