@@ -109,11 +109,19 @@ export default function AuthCallback() {
 
     handleGoogleCallback(decodedToken)
       .then(() => {
-        console.log('[AuthCallback] Authentication successful, redirecting');
-        const from = searchParams.get('from') || intendedPath || '/';
-        console.log('[AuthCallback] Redirecting to:', from);
-        closeAuthModal();
-        navigate(from, { replace: true });
+        console.log('[AuthCallback] Authentication successful, auth state updated');
+        // Small delay to ensure state is fully propagated
+        setTimeout(() => {
+          const from = searchParams.get('from') || intendedPath || '/';
+          console.log('[AuthCallback] Redirecting to:', from);
+          console.log('[AuthCallback] Auth state after callback:', {
+            user: useAuthStore.getState().user?.email,
+            isAuthenticated: useAuthStore.getState().isAuthenticated,
+            isInitialized: useAuthStore.getState().isInitialized,
+          });
+          closeAuthModal();
+          navigate(from, { replace: true });
+        }, 100);
       })
       .catch((err) => {
         // Error is handled by the store, just stay on this page to show it

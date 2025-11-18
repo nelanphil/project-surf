@@ -16,6 +16,7 @@ interface AuthState {
   authModalOpen: boolean;
   intendedPath: string | null;
   isAuthenticated: boolean;
+  isInitialized: boolean;
   openAuthModal: (path?: string) => void;
   closeAuthModal: () => void;
   signIn: (email: string, password: string) => Promise<void>;
@@ -56,6 +57,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   authModalOpen: false,
   intendedPath: null,
   isAuthenticated: !!getStoredUser(),
+  isInitialized: false,
 
   setLoading: (loading: boolean) => {
     set({ isLoading: loading });
@@ -111,12 +113,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         isLoading: false,
         error: null,
         isAuthenticated: true,
+        isInitialized: true,
       });
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to sign in';
       set({
         isLoading: false,
         error: errorMessage,
+        isInitialized: true,
       });
       throw error;
     }
@@ -156,12 +160,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         isLoading: false,
         error: null,
         isAuthenticated: true,
+        isInitialized: true,
       });
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to create account';
       set({
         isLoading: false,
         error: errorMessage,
+        isInitialized: true,
       });
       throw error;
     }
@@ -184,10 +190,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     const { token } = get();
     
     if (!token) {
-      set({ user: null, isLoading: false });
+      console.log('[Auth Store] No token found, marking as initialized');
+      set({ user: null, isLoading: false, isInitialized: true });
       return;
     }
 
+    console.log('[Auth Store] Fetching current user, setting isLoading=true');
     set({ isLoading: true });
     
     try {
@@ -196,6 +204,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           'Authorization': `Bearer ${token}`,
         },
       });
+
+      console.log('[Auth Store] fetchCurrentUser response status:', response.status);
 
       if (response.ok) {
         const userData = await response.json();
@@ -207,14 +217,22 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         };
         
         localStorage.setItem(USER_KEY, JSON.stringify(user));
+        console.log('[Auth Store] User fetched successfully:', { id: user.id, email: user.email });
         set({
           user,
           isLoading: false,
           error: null,
           isAuthenticated: true,
+          isInitialized: true,
         });
       } else {
         // Token invalid, clear storage
+        const errorData = await response.json().catch(() => ({}));
+        console.warn('[Auth Store] Token validation failed:', {
+          status: response.status,
+          statusText: response.statusText,
+          error: errorData.message || errorData.error || 'Unknown error',
+        });
         localStorage.removeItem(TOKEN_KEY);
         localStorage.removeItem(USER_KEY);
         set({
@@ -222,10 +240,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           token: null,
           isLoading: false,
           isAuthenticated: false,
+          isInitialized: true,
         });
       }
     } catch (error) {
-      console.error('Error fetching current user:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error('[Auth Store] Error fetching current user:', {
+        message: errorMessage,
+        apiUrl: API_BASE_URL,
+        error: error instanceof Error ? error.stack : error,
+      });
       localStorage.removeItem(TOKEN_KEY);
       localStorage.removeItem(USER_KEY);
       set({
@@ -233,6 +257,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         token: null,
         isLoading: false,
         isAuthenticated: false,
+        isInitialized: true,
       });
     }
   },
@@ -295,6 +320,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         isLoading: false,
         error: null,
         isAuthenticated: true,
+        isInitialized: true,
       });
       
       console.log('[Google Auth] Callback handling complete');
@@ -316,6 +342,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         isLoading: false,
         error: errorMessage,
         isAuthenticated: false,
+        isInitialized: true,
       });
       throw error;
     }
@@ -329,6 +356,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       token: null,
       error: null,
       isAuthenticated: false,
+      isInitialized: true,
     });
   },
 }));
@@ -337,7 +365,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 if (typeof window !== 'undefined') {
   const token = getStoredToken();
   if (token) {
+    console.log('[Auth Store] Token found on mount, initializing auth state');
     useAuthStore.getState().fetchCurrentUser();
+  } else {
+    console.log('[Auth Store] No token found on mount, marking as initialized');
+    useAuthStore.setState({ isInitialized: true });
   }
+} else {
+  // Server-side rendering - mark as initialized immediately
+  useAuthStore.setState({ isInitialized: true });
 }
 
