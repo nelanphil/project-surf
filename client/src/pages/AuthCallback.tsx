@@ -79,12 +79,23 @@ export default function AuthCallback() {
       console.log('[AuthCallback] Token from hash:', token ? `${token.substring(0, 20)}...` : 'null');
     }
     
-    // Fourth try: sessionStorage backup (in case page reloaded and query params were lost)
+    // Fourth try: localStorage (token may have been captured by pre-React script)
+    if (!token) {
+      const storedToken = localStorage.getItem('gringo_surf_token');
+      if (storedToken) {
+        token = storedToken;
+        console.log('[AuthCallback] Token from localStorage (pre-captured):', token ? `${token.substring(0, 20)}...` : 'null');
+      }
+    }
+    
+    // Fifth try: sessionStorage backup (in case page reloaded and query params were lost)
     if (!token) {
       const backupToken = sessionStorage.getItem('google_auth_token_backup');
       if (backupToken) {
         token = backupToken;
         console.log('[AuthCallback] Token from sessionStorage backup:', token ? `${token.substring(0, 20)}...` : 'null');
+        // Store in localStorage for consistency
+        localStorage.setItem('gringo_surf_token', backupToken);
         // Clear the backup after using it
         sessionStorage.removeItem('google_auth_token_backup');
       }
@@ -122,9 +133,14 @@ export default function AuthCallback() {
       console.warn('[AuthCallback] Token decode failed, using original:', e);
     }
 
-    console.log('[AuthCallback] Processing token from URL');
+    console.log('[AuthCallback] Processing token');
     console.log('[AuthCallback] Token length:', decodedToken.length);
     console.log('[AuthCallback] Token starts with:', decodedToken.substring(0, 20));
+    
+    // Ensure token is stored in localStorage (in case pre-React script didn't run)
+    localStorage.setItem('gringo_surf_token', decodedToken);
+    sessionStorage.setItem('google_auth_token_backup', decodedToken);
+    
     hasProcessed.current = true;
 
     handleGoogleCallback(decodedToken)

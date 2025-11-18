@@ -50,12 +50,17 @@ const getStoredUser = (): User | null => {
 };
 
 // Check if we have stored auth data to determine initial state
+// Note: Token may have been captured by pre-React script in index.html
 const initialToken = getStoredToken();
 const initialUser = getStoredUser();
 // If we have both token and user, we can mark as initialized optimistically
 // If we only have token (no user), we need to wait for fetchCurrentUser
 // If we have neither, we're immediately initialized
 const canInitializeOptimistically = !!(initialToken && initialUser) || !initialToken;
+
+// If we have a token but no user, and we're on the callback route, 
+// the token was just captured - we need to fetch the user
+const isOnCallbackRoute = typeof window !== 'undefined' && window.location.pathname === '/auth/callback';
 
 export const useAuthStore = create<AuthState>((set, get) => ({
   user: initialUser,
@@ -386,8 +391,12 @@ if (typeof window !== 'undefined') {
     });
   } else if (token && !user) {
     // We have token but no user - need to fetch user before marking initialized
+    // This often happens when token was just captured by pre-React script
     // Store is NOT initialized yet, so components will wait
     console.log('[Auth Store] Token found but no user, fetching user data (waiting for initialization)');
+    if (isOnCallbackRoute) {
+      console.log('[Auth Store] On callback route - token likely just captured, fetching user immediately');
+    }
     useAuthStore.getState().fetchCurrentUser();
   } else {
     // No token - already initialized (default state)

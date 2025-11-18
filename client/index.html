@@ -9,6 +9,40 @@
 
     <body>
       <div id="root"></div>
+      <!-- Capture Google auth token immediately before React initializes -->
+      <!-- This prevents the token from being lost during page reloads caused by redirect rules -->
+      <script>
+        (function() {
+          // Only process if we're on the auth callback route
+          if (window.location.pathname === '/auth/callback') {
+            try {
+              // Extract token from URL immediately
+              const urlParams = new URLSearchParams(window.location.search);
+              const token = urlParams.get('token');
+              
+              if (token) {
+                console.log('[Pre-React] Token found in URL, storing immediately');
+                // Store token immediately in localStorage before any redirects
+                // This ensures the token survives page reloads caused by redirect rules
+                localStorage.setItem('gringo_surf_token', token);
+                // Also store in sessionStorage as backup
+                sessionStorage.setItem('google_auth_token_backup', token);
+                console.log('[Pre-React] Token stored successfully in localStorage and sessionStorage');
+                // Keep token in URL - React will process it, but now we have a backup
+              } else {
+                // Check sessionStorage backup
+                const backupToken = sessionStorage.getItem('google_auth_token_backup');
+                if (backupToken) {
+                  console.log('[Pre-React] No token in URL, using sessionStorage backup');
+                  localStorage.setItem('gringo_surf_token', backupToken);
+                }
+              }
+            } catch (error) {
+              console.error('[Pre-React] Error capturing token:', error);
+            }
+          }
+        })();
+      </script>
       <script type="module" src="/src/main.tsx"></script>
     </body>
   </html>
