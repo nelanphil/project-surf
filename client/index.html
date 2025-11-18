@@ -13,10 +13,13 @@
       <!-- This prevents the token from being lost during page reloads caused by redirect rules -->
       <script>
         (function() {
-          // Only process if we're on the auth callback route
-          if (window.location.pathname === '/auth/callback') {
-            try {
-              // Extract token from URL immediately
+          try {
+            // Check if we're on the auth callback route
+            const isCallbackRoute = window.location.pathname === '/auth/callback' || 
+                                     window.location.pathname.includes('/auth/callback');
+            
+            if (isCallbackRoute) {
+              // Extract token from URL immediately (synchronous, before any redirects)
               const urlParams = new URLSearchParams(window.location.search);
               const token = urlParams.get('token');
               
@@ -27,19 +30,35 @@
                 localStorage.setItem('gringo_surf_token', token);
                 // Also store in sessionStorage as backup
                 sessionStorage.setItem('google_auth_token_backup', token);
+                // Store a flag that we've captured the token
+                sessionStorage.setItem('token_captured', 'true');
                 console.log('[Pre-React] Token stored successfully in localStorage and sessionStorage');
-                // Keep token in URL - React will process it, but now we have a backup
               } else {
-                // Check sessionStorage backup
+                // Check sessionStorage backup (in case URL was stripped but we had it before)
                 const backupToken = sessionStorage.getItem('google_auth_token_backup');
                 if (backupToken) {
-                  console.log('[Pre-React] No token in URL, using sessionStorage backup');
+                  console.log('[Pre-React] No token in URL, restoring from sessionStorage backup');
                   localStorage.setItem('gringo_surf_token', backupToken);
                 }
               }
-            } catch (error) {
-              console.error('[Pre-React] Error capturing token:', error);
             }
+            
+            // Also check hash fragment as fallback (some OAuth flows use hash)
+            if (window.location.hash) {
+              try {
+                const hashParams = new URLSearchParams(window.location.hash.substring(1));
+                const hashToken = hashParams.get('token');
+                if (hashToken) {
+                  console.log('[Pre-React] Token found in hash fragment, storing');
+                  localStorage.setItem('gringo_surf_token', hashToken);
+                  sessionStorage.setItem('google_auth_token_backup', hashToken);
+                }
+              } catch (e) {
+                // Ignore hash parsing errors
+              }
+            }
+          } catch (error) {
+            console.error('[Pre-React] Error capturing token:', error);
           }
         })();
       </script>

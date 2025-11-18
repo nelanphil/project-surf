@@ -378,8 +378,58 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
 // Auto-fetch current user on mount if token exists
 if (typeof window !== 'undefined') {
-  const token = getStoredToken();
+  let token = getStoredToken();
   const user = getStoredUser();
+  
+  // Always check URL for token if not in localStorage
+  // This handles cases where pre-React script didn't run or token was lost during redirect
+  if (!token) {
+    console.log('[Auth Store] No token in localStorage, checking URL and sessionStorage');
+    try {
+      // Check URL query params
+      const urlParams = new URLSearchParams(window.location.search);
+      const urlToken = urlParams.get('token');
+      
+      // Check hash fragment
+      let hashToken = null;
+      if (window.location.hash) {
+        try {
+          const hashParams = new URLSearchParams(window.location.hash.substring(1));
+          hashToken = hashParams.get('token');
+        } catch (e) {
+          // Ignore hash parsing errors
+        }
+      }
+      
+      // Check sessionStorage backup
+      const backupToken = sessionStorage.getItem('google_auth_token_backup');
+      
+      // Use first available token source
+      token = urlToken || hashToken || backupToken;
+      
+      if (token) {
+        console.log('[Auth Store] Token found from:', {
+          url: !!urlToken,
+          hash: !!hashToken,
+          sessionStorage: !!backupToken,
+        });
+        console.log('[Auth Store] Storing token in localStorage');
+        localStorage.setItem(TOKEN_KEY, token);
+        if (!backupToken) {
+          sessionStorage.setItem('google_auth_token_backup', token);
+        }
+        // Update store with token
+        useAuthStore.setState({ token });
+      } else {
+        console.log('[Auth Store] No token found in URL, hash, or sessionStorage');
+        console.log('[Auth Store] Current URL:', window.location.href);
+        console.log('[Auth Store] Search params:', window.location.search);
+        console.log('[Auth Store] Hash:', window.location.hash);
+      }
+    } catch (error) {
+      console.error('[Auth Store] Error checking for token:', error);
+    }
+  }
   
   if (token && user) {
     // We have both token and user in storage - validate token in background
@@ -391,11 +441,11 @@ if (typeof window !== 'undefined') {
     });
   } else if (token && !user) {
     // We have token but no user - need to fetch user before marking initialized
-    // This often happens when token was just captured by pre-React script
+    // This often happens when token was just captured by pre-React script or from URL
     // Store is NOT initialized yet, so components will wait
     console.log('[Auth Store] Token found but no user, fetching user data (waiting for initialization)');
     if (isOnCallbackRoute) {
-      console.log('[Auth Store] On callback route - token likely just captured, fetching user immediately');
+      console.log('[Auth Store] On callback route - token captured, fetching user immediately');
     }
     useAuthStore.getState().fetchCurrentUser();
   } else {
