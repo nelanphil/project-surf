@@ -9,16 +9,64 @@ export default function AuthCallback() {
   const { handleGoogleCallback, error, intendedPath, closeAuthModal } = useAuthStore();
   const hasProcessed = useRef(false);
 
+  // Log component mount and URL info immediately
+  useEffect(() => {
+    const currentUrl = window.location.href;
+    const currentPath = window.location.pathname;
+    const queryString = window.location.search;
+    
+    console.log('[AuthCallback] Component mounted');
+    console.log('[AuthCallback] Current URL:', currentUrl);
+    console.log('[AuthCallback] Current URL length:', currentUrl.length);
+    console.log('[AuthCallback] Current path:', currentPath);
+    console.log('[AuthCallback] Query string:', queryString);
+    console.log('[AuthCallback] Query string length:', queryString.length);
+    console.log('[AuthCallback] All search params:', Object.fromEntries(searchParams.entries()));
+    
+    // Check if URL might be truncated (some browsers/servers have ~2000 char limit)
+    if (currentUrl.length > 2000) {
+      console.warn('[AuthCallback] URL is very long, might be truncated:', currentUrl.length);
+    }
+  }, [searchParams]);
+
   useEffect(() => {
     // Prevent multiple calls
     if (hasProcessed.current) {
+      console.log('[AuthCallback] Already processed, skipping');
       return;
     }
 
-    const token = searchParams.get('token');
+    // Try multiple methods to get the token
+    let token = searchParams.get('token');
+    const currentUrl = window.location.href;
+
+    console.log('[AuthCallback] useEffect triggered');
+    console.log('[AuthCallback] Token from searchParams:', token ? `${token.substring(0, 20)}...` : 'null');
+    console.log('[AuthCallback] Full URL:', currentUrl);
+
+    // Fallback: try parsing from window.location.search directly
+    if (!token && window.location.search) {
+      const urlParams = new URLSearchParams(window.location.search);
+      token = urlParams.get('token');
+      console.log('[AuthCallback] Token from URLSearchParams fallback:', token ? `${token.substring(0, 20)}...` : 'null');
+    }
+
+    // Another fallback: try parsing from hash (some OAuth flows use hash)
+    if (!token && window.location.hash) {
+      const hashParams = new URLSearchParams(window.location.hash.substring(1));
+      token = hashParams.get('token');
+      console.log('[AuthCallback] Token from hash fallback:', token ? `${token.substring(0, 20)}...` : 'null');
+    }
 
     if (!token) {
-      console.warn('[AuthCallback] No token found in URL, redirecting to sign in');
+      console.error('[AuthCallback] No token found in URL, redirecting to sign in');
+      console.error('[AuthCallback] URL breakdown:', {
+        href: window.location.href,
+        pathname: window.location.pathname,
+        search: window.location.search,
+        hash: window.location.hash,
+        allParams: Object.fromEntries(searchParams.entries()),
+      });
       navigate('/signin', { replace: true });
       return;
     }
@@ -27,23 +75,30 @@ export default function AuthCallback() {
     let decodedToken = token;
     try {
       decodedToken = decodeURIComponent(token);
+      if (decodedToken !== token) {
+        console.log('[AuthCallback] Token was URL encoded, decoded successfully');
+      }
     } catch (e) {
       console.warn('[AuthCallback] Token decode failed, using original:', e);
     }
 
     console.log('[AuthCallback] Processing token from URL');
+    console.log('[AuthCallback] Token length:', decodedToken.length);
+    console.log('[AuthCallback] Token starts with:', decodedToken.substring(0, 20));
     hasProcessed.current = true;
 
     handleGoogleCallback(decodedToken)
       .then(() => {
         console.log('[AuthCallback] Authentication successful, redirecting');
         const from = searchParams.get('from') || intendedPath || '/';
+        console.log('[AuthCallback] Redirecting to:', from);
         closeAuthModal();
         navigate(from, { replace: true });
       })
       .catch((err) => {
         // Error is handled by the store, just stay on this page to show it
         console.error('[AuthCallback] Error handling Google callback:', err);
+        console.error('[AuthCallback] Error stack:', err instanceof Error ? err.stack : 'No stack');
         hasProcessed.current = false; // Allow retry on error
       });
   }, [searchParams, navigate, intendedPath, closeAuthModal, handleGoogleCallback]);
@@ -87,11 +142,25 @@ export default function AuthCallback() {
     );
   }
 
+  // Show debug info in development
+  const isDev = import.meta.env.DEV;
+  const token = searchParams.get('token') || new URLSearchParams(window.location.search).get('token');
+  
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white py-12 px-4 flex items-center justify-center">
-      <div className="max-w-md w-full text-center">
+      <div className="max-w-md w-full text-center space-y-4">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
         <p className="mt-4 text-slate-600">Completing sign in...</p>
+        {isDev && (
+          <div className="mt-4 p-4 bg-slate-100 rounded text-left text-xs text-slate-600">
+            <p><strong>Debug Info:</strong></p>
+            <p>Path: {window.location.pathname}</p>
+            <p>Search: {window.location.search}</p>
+            <p>Token present: {token ? 'Yes' : 'No'}</p>
+            <p>Token length: {token?.length || 0}</p>
+            <p>Processed: {hasProcessed.current ? 'Yes' : 'No'}</p>
+          </div>
+        )}
       </div>
     </div>
   );

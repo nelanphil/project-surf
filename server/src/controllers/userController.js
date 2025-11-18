@@ -195,17 +195,27 @@ export const deleteUser = asyncHandler(async (req, res) => {
 export const googleAuthCallback = asyncHandler(async (req, res) => {
   // This will be called after Passport authenticates the user
   // The user should be attached to req.user by Passport
+  console.log('[Google Auth] Callback handler called');
+  console.log('[Google Auth] req.user:', req.user ? { id: req.user._id, email: req.user.email } : 'null');
+  
   if (!req.user) {
+    console.error('[Google Auth] No user found in request');
     res.status(401);
     throw new Error("Google authentication failed");
   }
 
   const token = generateToken(req.user._id);
+  console.log('[Google Auth] Token generated:', {
+    userId: req.user._id.toString(),
+    tokenLength: token.length,
+    tokenPreview: token.substring(0, 20) + '...',
+  });
 
   // Redirect to frontend with token
   // For development, we'll redirect to a callback URL with token
   // In production, you might want to use a different approach (e.g., postMessage)
   let frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
+  console.log('[Google Auth] FRONTEND_URL from env:', process.env.FRONTEND_URL);
   
   // Ensure the URL is absolute (has protocol)
   if (!frontendUrl.startsWith("http://") && !frontendUrl.startsWith("https://")) {
@@ -219,6 +229,13 @@ export const googleAuthCallback = asyncHandler(async (req, res) => {
   // URL encode the token to ensure special characters are handled correctly
   const encodedToken = encodeURIComponent(token);
   const redirectUrl = `${frontendUrl}/auth/callback?token=${encodedToken}`;
+  
+  console.log('[Google Auth] Redirect details:', {
+    frontendUrl,
+    redirectUrl: `${frontendUrl}/auth/callback?token=${encodedToken.substring(0, 20)}...`,
+    tokenEncoded: encodedToken !== token,
+    redirectUrlLength: redirectUrl.length,
+  });
   
   console.log(`[Google Auth] Redirecting to frontend: ${frontendUrl}/auth/callback`);
   res.redirect(redirectUrl);
