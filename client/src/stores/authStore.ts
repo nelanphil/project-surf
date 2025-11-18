@@ -224,10 +224,27 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   handleGoogleCallback: async (token: string) => {
+    console.log('[Google Auth] Starting callback handling');
     set({ isLoading: true, error: null });
     
     try {
+      // Validate token format (basic JWT check - should have 3 parts separated by dots)
+      if (!token || typeof token !== 'string' || token.trim().length === 0) {
+        throw new Error('Invalid token: token is missing or empty');
+      }
+      
+      const tokenParts = token.split('.');
+      if (tokenParts.length !== 3) {
+        throw new Error('Invalid token format: expected JWT token');
+      }
+      
+      console.log('[Google Auth] Token validated, storing in localStorage');
+      
+      // Store token immediately (but don't set isAuthenticated until we have user data)
       localStorage.setItem(TOKEN_KEY, token);
+      set({ token });
+      
+      console.log('[Google Auth] Fetching user data from /users/me');
       
       // Fetch user data
       const response = await fetch(`${API_BASE_URL}/users/me`, {
@@ -236,32 +253,52 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         },
       });
 
-      if (response.ok) {
-        const userData = await response.json();
-        const user: User = {
-          id: userData._id || userData.id,
-          email: userData.email,
-          name: userData.name,
-          isAdmin: userData.isAdmin || false,
-        };
-        
-        localStorage.setItem(USER_KEY, JSON.stringify(user));
-        set({
-          user,
-          token,
-          isLoading: false,
-          error: null,
-          isAuthenticated: true,
-        });
-      } else {
-        throw new Error('Failed to fetch user data');
+      console.log('[Google Auth] Response status:', response.status, response.statusText);
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        const errorMessage = errorData.message || errorData.error || `Failed to fetch user data (${response.status})`;
+        console.error('[Google Auth] Failed to fetch user:', errorMessage, response.status);
+        throw new Error(errorMessage);
       }
+
+      const userData = await response.json();
+      console.log('[Google Auth] User data received:', { id: userData._id || userData.id, email: userData.email });
+      
+      const user: User = {
+        id: userData._id || userData.id,
+        email: userData.email,
+        name: userData.name,
+        isAdmin: userData.isAdmin || false,
+      };
+      
+      localStorage.setItem(USER_KEY, JSON.stringify(user));
+      
+      console.log('[Google Auth] Authentication successful, updating state');
+      set({
+        user,
+        token,
+        isLoading: false,
+        error: null,
+        isAuthenticated: true,
+      });
+      
+      console.log('[Google Auth] Callback handling complete');
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to complete Google sign-in';
-      console.error('Error handling Google callback:', error);
+      console.error('[Google Auth] Error handling callback:', error);
+      console.error('[Google Auth] Error details:', {
+        message: errorMessage,
+        token: token ? `${token.substring(0, 20)}...` : 'missing',
+        apiUrl: API_BASE_URL,
+      });
+      
+      // Clear storage on error
       localStorage.removeItem(TOKEN_KEY);
       localStorage.removeItem(USER_KEY);
       set({
+        user: null,
+        token: null,
         isLoading: false,
         error: errorMessage,
         isAuthenticated: false,

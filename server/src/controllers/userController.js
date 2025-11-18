@@ -216,8 +216,11 @@ export const googleAuthCallback = asyncHandler(async (req, res) => {
   // Remove trailing slash if present
   frontendUrl = frontendUrl.replace(/\/$/, "");
   
-  const redirectUrl = `${frontendUrl}/auth/callback?token=${token}`;
+  // URL encode the token to ensure special characters are handled correctly
+  const encodedToken = encodeURIComponent(token);
+  const redirectUrl = `${frontendUrl}/auth/callback?token=${encodedToken}`;
   
+  console.log(`[Google Auth] Redirecting to frontend: ${frontendUrl}/auth/callback`);
   res.redirect(redirectUrl);
 });
 
