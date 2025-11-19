@@ -51,6 +51,11 @@ export const BookingCalendar = forwardRef<BookingCalendarRef, BookingCalendarPro
       const month = currentMonth.getMonth();
       const weekends: Date[] = [];
 
+      // Get today's date normalized to start of day for comparison
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const todayStr = today.toISOString().split('T')[0];
+
       // Get first and last day of the month
       const firstDay = new Date(year, month, 1);
       const lastDay = new Date(year, month + 1, 0);
@@ -62,7 +67,15 @@ export const BookingCalendar = forwardRef<BookingCalendarRef, BookingCalendarPro
 
         // Saturday = 6, Sunday = 0
         if (dayOfWeek === 6 || dayOfWeek === 0) {
-          weekends.push(date);
+          // Normalize date to start of day for comparison
+          const dateNormalized = new Date(date);
+          dateNormalized.setHours(0, 0, 0, 0);
+          const dateStr = dateNormalized.toISOString().split('T')[0];
+
+          // Only include dates from today onwards
+          if (dateStr >= todayStr) {
+            weekends.push(date);
+          }
         }
       }
 
@@ -220,8 +233,27 @@ export const BookingCalendar = forwardRef<BookingCalendarRef, BookingCalendarPro
       }
     };
 
+    // Check if currentMonth is the current month (or earlier)
+    const isCurrentMonthOrEarlier = useMemo(() => {
+      const now = new Date();
+      const currentYear = now.getFullYear();
+      const currentMonthNum = now.getMonth();
+      const viewingYear = currentMonth.getFullYear();
+      const viewingMonth = currentMonth.getMonth();
+
+      // Check if viewing month/year is before or equal to current month/year
+      return (
+        viewingYear < currentYear ||
+        (viewingYear === currentYear && viewingMonth <= currentMonthNum)
+      );
+    }, [currentMonth]);
+
     // Navigate to previous month
     const goToPreviousMonth = () => {
+      // Prevent navigation if already at or before current month
+      if (isCurrentMonthOrEarlier) {
+        return;
+      }
       setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1));
       setSelectedSlots([]);
     };
@@ -369,6 +401,7 @@ export const BookingCalendar = forwardRef<BookingCalendarRef, BookingCalendarPro
               size="icon"
               onClick={goToPreviousMonth}
               aria-label="Previous month"
+              disabled={isCurrentMonthOrEarlier}
             >
               <ChevronLeft className="h-4 w-4" />
             </Button>
